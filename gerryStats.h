@@ -7,8 +7,6 @@
 
 #include "stats.h"
 
-using namespace std;
-
 double RadToDeg(double rad) { return (180.0 / M_PI) * rad; }
 
 double calcXWeight(size_t numDistricts) { return (numDistricts / 2) + .5; }
@@ -18,9 +16,9 @@ double calcXWeight(size_t numDistricts) { return (numDistricts / 2) + .5; }
 // between a party's median vote share and its mean vote share. Higher
 // differences, especially if the differences are largely only affecting one
 // party in a state, could indicate a partisan gerrymander.
-vector<double> getMeanMedianScores(vector<double> demVoteShares) {
-    vector<double> demDistricts;
-    vector<double> repDistricts;
+double getMeanMedianScores(std::vector<double> demVoteShares) {
+    std::vector<double> demDistricts;
+    std::vector<double> repDistricts;
     sort(demVoteShares.begin(), demVoteShares.end());
     // split into the percentage of the respective party's votes, rather than by
     // demVoteShares.
@@ -33,7 +31,7 @@ vector<double> getMeanMedianScores(vector<double> demVoteShares) {
     double repMeanMedian =
         stats::computeMedian(repDistricts) - stats::computeMean(repDistricts);
 
-    return vector<double>{repMeanMedian, demMeanMedian};
+    return demMeanMedian - repMeanMedian;
 }
 
 // gets the two angles from a point on the 50% line inbetween democratic and
@@ -42,11 +40,11 @@ vector<double> getMeanMedianScores(vector<double> demVoteShares) {
 // Close to 0 is better. Positive values may indicate gerrymander in favor
 // of republicans, negative values may indicate gerrymander in favor of
 // democrats.
-double getDeclinationAngle(vector<double> demVoteShares) {
+double getDeclinationAngle(std::vector<double> demVoteShares) {
     // these are the absolute-value differences from 0.5, to make the math
     // easier
-    vector<double> demDiff;
-    vector<double> repDiff;
+    std::vector<double> demDiff;
+    std::vector<double> repDiff;
     // split into the two groups, and store as differences from 50%.
     sort(demVoteShares.begin(), demVoteShares.end());
     for (auto pct : demVoteShares) {
@@ -61,12 +59,6 @@ double getDeclinationAngle(vector<double> demVoteShares) {
     // points
     double repAngle = atan2(stats::computeMean(repDiff), repCenter);
     double demAngle = atan2(stats::computeMean(demDiff), demCenter);
-
-    // debug
-    cout << "average dem win: " << stats::computeMean(demDiff) << endl;
-    cout << "average rep win: " << stats::computeMean(repDiff) << endl;
-    cout << "below 50(in degrees): " << 180.0 / M_PI * repAngle << endl;
-    cout << "above 50(in degrees): " << 180.0 / M_PI * demAngle << endl;
 
     // calculate the declination angle as 2/π * best fit angle of above -
     // best fit angle of below
