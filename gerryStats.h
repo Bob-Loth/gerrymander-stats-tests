@@ -22,9 +22,11 @@ vector<double> getMeanMedianScores(vector<double> demVoteShares) {
     vector<double> demDistricts;
     vector<double> repDistricts;
     sort(demVoteShares.begin(), demVoteShares.end());
+    // split into the percentage of the respective party's votes, rather than by
+    // demVoteShares.
     for (auto pct : demVoteShares) {
-        (pct > 0.5) ? demDistricts.push_back(pct - 0.5)
-                    : repDistricts.push_back(0.5 - pct);
+        (pct > 0.5) ? demDistricts.push_back(pct)
+                    : repDistricts.push_back(1 - pct);
     }
     double demMeanMedian =
         stats::computeMedian(demDistricts) - stats::computeMean(demDistricts);
