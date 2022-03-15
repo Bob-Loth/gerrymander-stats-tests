@@ -42,13 +42,43 @@ double getEfficiencyGap(std::vector<int> demVoteCounts,
     return efficiencyGap;
 }
 
-double getPartisanBias(std::vector<double> demVoteShares, int statePop) {
-    int numVotesForDem = 0;
-    int numVotesPerDistrict =
-        static_cast<double>(demVoteShares.size()) / statePop;
-    for (auto pct : demVoteShares) {
-        numVotesForDem +=
+double getPartisanBias(std::vector<int> demVoteCounts,
+                       std::vector<int> repVoteCounts) {
+    int statewideDemVoteCount =
+        std::accumulate(demVoteCounts.begin(), demVoteCounts.end(), 0);
+    int statewideRepVoteCount =
+        std::accumulate(repVoteCounts.begin(), repVoteCounts.end(), 0);
+    int statewideTotalVoteCount = statewideDemVoteCount + statewideRepVoteCount;
+
+    double statewideDemVoteShare =
+        static_cast<double>(statewideDemVoteCount) / statewideTotalVoteCount;
+    double statewideRepVoteShare =
+        static_cast<double>(statewideRepVoteCount) / statewideTotalVoteCount;
+    // the ratios to multiply each district's vote totals by to simulate a tied
+    // statewide election
+    double demRatio = 0.5 / statewideDemVoteShare;
+    double repRatio = 0.5 / statewideRepVoteShare;
+
+    std::vector<int> adjustedDemVoteCounts;
+    std::vector<int> adjustedRepVoteCounts;
+    // adjust each district's vote counts evenly to reflect this hypothetical
+    // tied election
+    std::transform(demVoteCounts.begin(), demVoteCounts.end(),
+                   back_inserter(adjustedDemVoteCounts),
+                   [demRatio](int val) { return val * demRatio; });
+    std::transform(repVoteCounts.begin(), repVoteCounts.end(),
+                   back_inserter(adjustedRepVoteCounts),
+                   [repRatio](int val) { return val * repRatio; });
+    // determine the new winners of districts based on this information
+    int adjustedRepSeatsWon = 0;
+    for (int i = 0; i < demVoteCounts.size(); i++) {
+        if (adjustedRepVoteCounts[i] >= adjustedDemVoteCounts[i]) {
+            adjustedRepSeatsWon++;
+        }
     }
+    double percentageRepSeatsWon =
+        static_cast<double>(adjustedRepSeatsWon) / demVoteCounts.size();
+    return percentageRepSeatsWon - 0.5;
 }
 
 // returns a double indicating (demMedian - demMean) - (repMedian - repMean)
