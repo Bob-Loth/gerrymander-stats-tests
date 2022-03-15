@@ -14,6 +14,8 @@ class districtRegionData : public regionData
 {
 public:
     static inline const set<string> includeColumns = set<string>{
+        "2020HouseDemCount",
+        "2020HouseRepCount"
     };
 
     districtRegionData() : regionData(), districts(1)
@@ -35,26 +37,9 @@ public:
         districtNum = dnum;
     }
 
-    void setEstDemVoteShare(int v) {
-        estDemVoteShare = v;
-    }
-
-    void setMvap(int v) {
-        mvap = v;
-    }
-
-    std::string getDistrictNum() {
+    std::string getDistrictNum() const {
         return districtNum;
     }
-
-    double getEstDemVoteShare() {
-        return estDemVoteShare;
-    }
-
-    double getMvap() {
-        return mvap;
-    }
-
 
     // add any others needed
     void aggregate(const districtRegionData* newData);
@@ -66,8 +51,6 @@ public:
 
 protected:
     std::string districtNum;
-    double estDemVoteShare;
-    double mvap;
 };
 
 #endif

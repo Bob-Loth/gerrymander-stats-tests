@@ -13,8 +13,6 @@ void districtRegionData::aggregate(const districtRegionData *newData)
     this->setCounty(regionData::combineRegionStrings(this->getCounty(), newData->getCounty()));
     this->setState(regionData::combineRegionStrings(this->getState(), newData->getState()));
     this->districtNum = "UNDEF";
-    this->estDemVoteShare = 0;
-    this->mvap = 0;
 }
 
 /* print state demographic data */

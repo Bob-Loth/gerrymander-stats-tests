@@ -61,9 +61,28 @@ unique_ptr<regionData>
 {
     std::stringstream ss(theLine);
 
-    string state = getField(ss);
+    auto colIttr = cols->begin();
+    string dname = getField(ss);
+    colIttr++;
+    string dId = getField(ss);
+    colIttr++;
+    string state = dId.substr(0,2);
+    string district = dId.substr(3,5);
 
     auto demData = make_unique<districtRegionData>(state);
+    demData->setDistrictNum(district);
+
+    while (colIttr != cols->end())
+    {
+        string field = getField(ss);
+        // strip quotes
+        string cName = colIttr->colName;
+        if (keep_cols.find(cName) != keep_cols.end())
+        {
+            demData->addProperty(cName, stoi(field));
+        }
+        colIttr++;
+    }
 
     return demData;
 }
