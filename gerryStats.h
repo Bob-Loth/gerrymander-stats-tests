@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <numeric>
 #include <vector>
 
 #include "stats.h"
@@ -14,39 +15,70 @@ double calcXWeight(size_t numDistricts) { return (numDistricts / 2) + .5; }
 // computes the efficiency gap. Gap scaling is based on population, due to lack
 // of voting% data for our demVoteShares data. Positive values indicate
 // advantage for Republicans by convention.
-double getEfficiencyGap(std::vector<double> demVoteShares, int statePop) {
-    std::vector<double> demDistricts;
-    std::vector<double> repDistricts;
-    sort(demVoteShares.begin(), demVoteShares.end());
-    // split into the percentage of votes for the winning party of each district
-    for (auto pct : demVoteShares) {
-        (pct > 0.5) ? demDistricts.push_back(pct)
-                    : repDistricts.push_back(1 - pct);
-    }
+double getEfficiencyGap(std::vector<int> demVoteCounts,
+                        std::vector<int> repVoteCounts) {
+    int totalVotesCast = 0;
+    totalVotesCast =
+        std::accumulate(demVoteCounts.begin(), demVoteCounts.end(), 0) +
+        std::accumulate(repVoteCounts.begin(), repVoteCounts.end(), 0);
     // this has an error of +-2%, as allowed by redistricting law
-    double populationPerDistrict =
-        static_cast<double>(statePop) / demVoteShares.size();
+
     int demWasted = 0;
     int repWasted = 0;
     // calculate wasted votes across districts where Democrats won
-    for (auto pct : demDistricts) {
-        demWasted += (pct - 0.5) * populationPerDistrict;
-        repWasted += (1 - pct) * populationPerDistrict;
-    }
-    // calculate wasted votes across districts where Republicans won
-    for (auto pct : repDistricts) {
-        repWasted += (pct - 0.5) * populationPerDistrict;
-        demWasted += (1 - pct) * populationPerDistrict;
+    for (int i = 0; i < demVoteCounts.size(); i++) {
+        if (demVoteCounts[i] > repVoteCounts[i]) {
+            repWasted += repVoteCounts[i];
+            demWasted += demVoteCounts[i] - repVoteCounts[i];
+        } else {
+            demWasted += demVoteCounts[i];
+            repWasted += repVoteCounts[i] - repVoteCounts[i];
+        }
     }
     // this is based on population, because we don't have data on voting
     // percentage
     double efficiencyGap =
-        static_cast<double>(demWasted - repWasted) / statePop;
+        static_cast<double>(demWasted - repWasted) / totalVotesCast;
     return efficiencyGap;
 }
 
-double getPartisanBias(std::vector<double> getDemVoteShares, int statePop) {
-    return 0;
+double getPartisanBias(std::vector<int> demVoteCounts,
+                       std::vector<int> repVoteCounts) {
+    int statewideDemVoteCount =
+        std::accumulate(demVoteCounts.begin(), demVoteCounts.end(), 0);
+    int statewideRepVoteCount =
+        std::accumulate(repVoteCounts.begin(), repVoteCounts.end(), 0);
+    int statewideTotalVoteCount = statewideDemVoteCount + statewideRepVoteCount;
+
+    double statewideDemVoteShare =
+        static_cast<double>(statewideDemVoteCount) / statewideTotalVoteCount;
+    double statewideRepVoteShare =
+        static_cast<double>(statewideRepVoteCount) / statewideTotalVoteCount;
+    // the ratios to multiply each district's vote totals by to simulate a tied
+    // statewide election
+    double demRatio = 0.5 / statewideDemVoteShare;
+    double repRatio = 0.5 / statewideRepVoteShare;
+
+    std::vector<int> adjustedDemVoteCounts;
+    std::vector<int> adjustedRepVoteCounts;
+    // adjust each district's vote counts evenly to reflect this hypothetical
+    // tied election
+    std::transform(demVoteCounts.begin(), demVoteCounts.end(),
+                   back_inserter(adjustedDemVoteCounts),
+                   [demRatio](int val) { return val * demRatio; });
+    std::transform(repVoteCounts.begin(), repVoteCounts.end(),
+                   back_inserter(adjustedRepVoteCounts),
+                   [repRatio](int val) { return val * repRatio; });
+    // determine the new winners of districts based on this information
+    int adjustedRepSeatsWon = 0;
+    for (int i = 0; i < demVoteCounts.size(); i++) {
+        if (adjustedRepVoteCounts[i] >= adjustedDemVoteCounts[i]) {
+            adjustedRepSeatsWon++;
+        }
+    }
+    double percentageRepSeatsWon =
+        static_cast<double>(adjustedRepSeatsWon) / demVoteCounts.size();
+    return percentageRepSeatsWon - 0.5;
 }
 
 // returns a double indicating (demMedian - demMean) - (repMedian - repMean)
