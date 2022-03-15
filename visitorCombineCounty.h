@@ -55,7 +55,7 @@ public:
     // aggregate police shooting data by county
     void visit(districtRegionData *obj)
     {
-        std::string districtState = std::to_string(obj->getPropertyCount("districtNum")) + obj->getState();
+        std::string districtState = obj->getDistrictNum() + obj->getState();
         if (allComboDistrictData.find(districtState) != allComboDistrictData.end())
         {
             allComboDistrictData[districtState]->aggregate(obj);

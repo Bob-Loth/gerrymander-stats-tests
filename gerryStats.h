@@ -22,7 +22,9 @@ double getEfficiencyGap(std::vector<int> demVoteCounts,
         std::accumulate(demVoteCounts.begin(), demVoteCounts.end(), 0) +
         std::accumulate(repVoteCounts.begin(), repVoteCounts.end(), 0);
     // this has an error of +-2%, as allowed by redistricting law
-
+    if(totalVotesCast == 0) {
+        return 0;
+    }
     int demWasted = 0;
     int repWasted = 0;
     // calculate wasted votes across districts where Democrats won

@@ -34,12 +34,20 @@
 #include "states.h"
 #include "visitorAggregateLocations.h"
 #include "visitorCombineCounty.h"
+#include "visitorCombineState.h"
+#include "visitorCollectStates.h"
 #include "usRegionMap.h"
+#include "gerryStats.h"
 
 std::string getDistrictParseExpr(const regionData& r)
 {
     const districtRegionData& dr = dynamic_cast<const districtRegionData&>(r);
     return "([STATE_ABBR]='" + r.getState() + "' and [CDFIPS]='" + dr.getDistrictNum() + "')";
+}
+
+std::string getStateParseExpr(const regionData& r)
+{
+    return "[STUSPS] = " + r.getState() + "";
 }
 
 std::string getRegionFips(const regionData& r)
@@ -120,29 +128,162 @@ int main(int argc, char** argv)
                       std::make_move_iterator(thePoliceData.begin()),
                       std::make_move_iterator(thePoliceData.end()));
 
+    pileOfData.insert(std::end(pileOfData),
+                      std::make_move_iterator(theDistrictData.begin()),
+                      std::make_move_iterator(theDistrictData.end()));
+
     visitorCombineCounty combineCounties;
+    visitorCombineState combineStates;
+    visitorCollectStates stateCollections;
     for (const auto& obj : pileOfData)
     {
+        obj->accept(stateCollections);
         obj->accept(combineCounties);
+        obj->accept(combineStates);
     }
 
     std::map<string, shared_ptr<psRegionData>> psCounties = combineCounties.getRegionDataPolice();
     std::map<string, shared_ptr<demogRegionData>> demogCounties = combineCounties.getRegionDataDemog();
+    std::map<string, shared_ptr<demogRegionData>> demogStates = combineStates.getRegionDataDemog();
+    std::map<string, std::vector<districtRegionData*>> districtCollections = stateCollections.getDistrictValues();
 
     // Vote shares
     visitorAggregateLocations aggVoteShares(isValidDistrict, getDistrictParseExpr, [](const regionData& r) {
         return r.getPropertyCount("2020HouseDemCount") /
                (float)(r.getPropertyCount("2020HouseDemCount") + r.getPropertyCount("2020HouseRepCount"));
     });
+    visitorAggregateLocations aggEfficiencyGap(
+      [](const regionData& r) { return true; },
+      getStateParseExpr,
+      [&](const regionData& r) {
+          vector<int> demCounts;
+          vector<int> repCounts;
+          transform(districtCollections[r.getState()].begin(),
+                    districtCollections[r.getState()].end(),
+                    std::back_inserter(demCounts),
+                    [](districtRegionData* drd) { return drd->getPropertyCount("2020HouseDemCount"); });
+          transform(districtCollections[r.getState()].begin(),
+                    districtCollections[r.getState()].end(),
+                    std::back_inserter(repCounts),
+                    [](districtRegionData* drd) { return drd->getPropertyCount("2020HouseRepCount"); });
+          return getEfficiencyGap(demCounts, repCounts);
+      });
 
-    for (const auto& obj : theDistrictData)
+    visitorAggregateLocations aggPartisanBias(
+      [](const regionData& r) { return true; },
+      getStateParseExpr,
+      [&](const regionData& r) {
+          vector<int> demCounts;
+          vector<int> repCounts;
+          transform(districtCollections[r.getState()].begin(),
+                    districtCollections[r.getState()].end(),
+                    std::back_inserter(demCounts),
+                    [](districtRegionData* drd) { return drd->getPropertyCount("2020HouseDemCount"); });
+          transform(districtCollections[r.getState()].begin(),
+                    districtCollections[r.getState()].end(),
+                    std::back_inserter(repCounts),
+                    [](districtRegionData* drd) { return drd->getPropertyCount("2020HouseRepCount"); });
+          return getPartisanBias(demCounts, repCounts);
+      });
+    visitorAggregateLocations aggMeanMedianScores(
+      [](const regionData& r) { return true; },
+      getStateParseExpr,
+      [&](const regionData& r) {
+          vector<int> demCounts;
+          vector<int> repCounts;
+          transform(districtCollections[r.getState()].begin(),
+                    districtCollections[r.getState()].end(),
+                    std::back_inserter(demCounts),
+                    [](districtRegionData* drd) { return drd->getPropertyCount("2020HouseDemCount"); });
+          transform(districtCollections[r.getState()].begin(),
+                    districtCollections[r.getState()].end(),
+                    std::back_inserter(repCounts),
+                    [](districtRegionData* drd) { return drd->getPropertyCount("2020HouseRepCount"); });
+          if(demCounts.size() == 0) {
+              return 0.0;
+          }
+          vector<double> demShares;
+          for (int i = 0; i < demCounts.size(); i++)
+          {
+              demShares.push_back(demCounts[i] / (double)(repCounts[i] + demCounts[i]));
+          }
+          cout << demCounts.size() << " : " << demShares.size() << endl;
+          return getMeanMedianScores(demShares);
+      });
+    visitorAggregateLocations aggDeclinationAngle(
+      [](const regionData& r) { return true; },
+      getStateParseExpr,
+      [&](const regionData& r) {
+          vector<int> demCounts;
+          vector<int> repCounts;
+          transform(districtCollections[r.getState()].begin(),
+                    districtCollections[r.getState()].end(),
+                    std::back_inserter(demCounts),
+                    [](districtRegionData* drd) { return drd->getPropertyCount("2020HouseDemCount"); });
+          transform(districtCollections[r.getState()].begin(),
+                    districtCollections[r.getState()].end(),
+                    std::back_inserter(repCounts),
+                    [](districtRegionData* drd) { return drd->getPropertyCount("2020HouseRepCount"); });
+          if(demCounts.size() == 0) {
+              return 0.0;
+          }
+          vector<double> demShares;
+          for (int i = 0; i < demCounts.size(); i++)
+          {
+              demShares.push_back(demCounts[i] / (double)(repCounts[i] + demCounts[i]));
+          }
+          return getDeclinationAngle(demShares);
+      });
+
+    for (const auto& obj : pileOfData)
     {
         obj->accept(aggVoteShares);
     }
+    for (const auto& obj : demogStates)
+    {
+        obj.second->accept(aggEfficiencyGap);
+        obj.second->accept(aggPartisanBias);
+        obj.second->accept(aggMeanMedianScores);
+        obj.second->accept(aggDeclinationAngle);
+    }
 
-    usRegionMap regionMap("DistrictLines");
+    usRegionMap eg("EfficiencyGap");
+    usRegionMap pb("PartisanBias");
+    usRegionMap mms("MeanMedianScores");
+    usRegionMap da("DeclinationAngle");
 
-    regionMap.addParsedMapLayer(
+    // District Coloring --------------------------------------------------
+    eg.addParsedMapLayer(
+      "DistrictColoring",
+      aggVoteShares,
+      rwbColorMap,
+      [](mapnik::color& c) {
+          mapnik::polygon_symbolizer poly_sym;
+          put(poly_sym, mapnik::keys::fill, c);
+          return (symbolizer)poly_sym;
+      },
+      "demo/data/cd117");
+    pb.addParsedMapLayer(
+      "DistrictColoring",
+      aggVoteShares,
+      rwbColorMap,
+      [](mapnik::color& c) {
+          mapnik::polygon_symbolizer poly_sym;
+          put(poly_sym, mapnik::keys::fill, c);
+          return (symbolizer)poly_sym;
+      },
+      "demo/data/cd117");
+    mms.addParsedMapLayer(
+      "DistrictColoring",
+      aggVoteShares,
+      rwbColorMap,
+      [](mapnik::color& c) {
+          mapnik::polygon_symbolizer poly_sym;
+          put(poly_sym, mapnik::keys::fill, c);
+          return (symbolizer)poly_sym;
+      },
+      "demo/data/cd117");
+    da.addParsedMapLayer(
       "DistrictColoring",
       aggVoteShares,
       rwbColorMap,
@@ -153,7 +294,8 @@ int main(int argc, char** argv)
       },
       "demo/data/cd117");
 
-    mapnik::feature_type_style districtlines_style;
+    // District lines --------------------------------------------------
+    mapnik::feature_type_style districtlines_style1;
     {
         rule r;
         {
@@ -162,35 +304,124 @@ int main(int argc, char** argv)
             }
             mapnik::line_symbolizer line_sym;
             put(line_sym, keys::stroke, color(0, 0, 0));
-            put(line_sym, keys::stroke_width, 0.5);
+            put(line_sym, keys::stroke_width, 1.0f);
             put(line_sym, keys::stroke_linecap, ROUND_CAP);
             put(line_sym, keys::stroke_linejoin, ROUND_JOIN);
             r.append(std::move(line_sym));
         }
-        districtlines_style.add_rule(std::move(r));
+        districtlines_style1.add_rule(std::move(r));
     }
-    regionMap.addSimpleMapLayer("DistrictLines", "demo/data/cd117", std::move(districtlines_style));
+    eg.addSimpleMapLayer("DistrictLines", "demo/data/cd117", std::move(districtlines_style1));
 
-    // State Lines
-    mapnik::feature_type_style statelines_style;
+    mapnik::feature_type_style districtlines_style2;
     {
-        mapnik::rule r;
+        rule r;
         {
+            {
+                mapnik::polygon_symbolizer poly_sym;
+            }
             mapnik::line_symbolizer line_sym;
-            put(line_sym, keys::stroke, color(255, 255, 255));
-            put(line_sym, keys::stroke_width, 0.5);
+            put(line_sym, keys::stroke, color(0, 0, 0));
+            put(line_sym, keys::stroke_width, 1.0f);
             put(line_sym, keys::stroke_linecap, ROUND_CAP);
             put(line_sym, keys::stroke_linejoin, ROUND_JOIN);
             r.append(std::move(line_sym));
         }
-        statelines_style.add_rule(std::move(r));
+        districtlines_style2.add_rule(std::move(r));
     }
-    regionMap.addSimpleMapLayer("StateLines", "demo/data/cb_2018_us_state_20m", std::move(statelines_style));
+    pb.addSimpleMapLayer("DistrictLines", "demo/data/cd117", std::move(districtlines_style2));
 
-    return regionMap.saveToJPG();
-    /*[](mapnik::color& c) {
-            mapnik::polygon_symbolizer poly_sym;
-            put(poly_sym, mapnik::keys::fill, c);
-            return (symbolizer)poly_sym;
-        }*/
+    mapnik::feature_type_style districtlines_style3;
+    {
+        rule r;
+        {
+            {
+                mapnik::polygon_symbolizer poly_sym;
+            }
+            mapnik::line_symbolizer line_sym;
+            put(line_sym, keys::stroke, color(0, 0, 0));
+            put(line_sym, keys::stroke_width, 1.0f);
+            put(line_sym, keys::stroke_linecap, ROUND_CAP);
+            put(line_sym, keys::stroke_linejoin, ROUND_JOIN);
+            r.append(std::move(line_sym));
+        }
+        districtlines_style3.add_rule(std::move(r));
+    }
+    mms.addSimpleMapLayer("DistrictLines", "demo/data/cd117", std::move(districtlines_style3));
+    mapnik::feature_type_style districtlines_style4;
+    {
+        rule r;
+        {
+            {
+                mapnik::polygon_symbolizer poly_sym;
+            }
+            mapnik::line_symbolizer line_sym;
+            put(line_sym, keys::stroke, color(0, 0, 0));
+            put(line_sym, keys::stroke_width, 1.0f);
+            put(line_sym, keys::stroke_linecap, ROUND_CAP);
+            put(line_sym, keys::stroke_linejoin, ROUND_JOIN);
+            r.append(std::move(line_sym));
+        }
+        districtlines_style4.add_rule(std::move(r));
+    }
+    da.addSimpleMapLayer("DistrictLines", "demo/data/cd117", std::move(districtlines_style4));
+
+    // State Line Coloring -------------------------------------------------
+    eg.addParsedMapLayer(
+      "StateBorderColoring",
+      aggEfficiencyGap,
+      rwbColorMap,
+      [](mapnik::color& c) {
+          mapnik::line_symbolizer line_sym;
+          put(line_sym, keys::stroke, c);
+          put(line_sym, keys::stroke_width, 6.0f);
+          put(line_sym, keys::stroke_linecap, ROUND_CAP);
+          put(line_sym, keys::stroke_linejoin, ROUND_JOIN);
+          return (symbolizer)line_sym;
+      },
+      "demo/data/cb_2018_us_state_20m");
+    pb.addParsedMapLayer(
+      "StateBorderColoring",
+      aggPartisanBias,
+      rwbColorMap,
+      [](mapnik::color& c) {
+          mapnik::line_symbolizer line_sym;
+          put(line_sym, keys::stroke, c);
+          put(line_sym, keys::stroke_width, 6.0f);
+          put(line_sym, keys::stroke_linecap, ROUND_CAP);
+          put(line_sym, keys::stroke_linejoin, ROUND_JOIN);
+          return (symbolizer)line_sym;
+      },
+      "demo/data/cb_2018_us_state_20m");
+    mms.addParsedMapLayer(
+      "StateBorderColoring",
+      aggMeanMedianScores,
+      rwbColorMap,
+      [](mapnik::color& c) {
+          mapnik::line_symbolizer line_sym;
+          put(line_sym, keys::stroke, c);
+          put(line_sym, keys::stroke_width, 6.0f);
+          put(line_sym, keys::stroke_linecap, ROUND_CAP);
+          put(line_sym, keys::stroke_linejoin, ROUND_JOIN);
+          return (symbolizer)line_sym;
+      },
+      "demo/data/cb_2018_us_state_20m");
+    da.addParsedMapLayer(
+      "StateBorderColoring",
+      aggDeclinationAngle,
+      rwbColorMap,
+      [](mapnik::color& c) {
+          mapnik::line_symbolizer line_sym;
+          put(line_sym, keys::stroke, c);
+          put(line_sym, keys::stroke_width, 6.0f);
+          put(line_sym, keys::stroke_linecap, ROUND_CAP);
+          put(line_sym, keys::stroke_linejoin, ROUND_JOIN);
+          return (symbolizer)line_sym;
+      },
+      "demo/data/cb_2018_us_state_20m");
+
+    return eg.saveToJPG();
+    return pb.saveToJPG();
+    return mms.saveToJPG();
+    return da.saveToJPG();
 }

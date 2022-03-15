@@ -1,7 +1,7 @@
-CXXFLAGS = -g $(shell mapnik-config --includes --defines --cxxflags --dep-includes) -std=c++17 -lprofiler
+CXXFLAGS = -g $(shell mapnik-config --includes --defines --cxxflags --dep-includes) -std=c++17
 LDFLAGS = $(shell mapnik-config --libs --dep-libs --ldflags)
 
-OBJ = CountyMap.o usRegionMap.o districtRegionData.o demogRegionData.o psRegionData.o parse.o rundemo.o
+OBJ = CountyMap.o usRegionMap.o stats.o districtRegionData.o demogRegionData.o psRegionData.o parse.o rundemo.o
 
 BIN = rundemo
 
