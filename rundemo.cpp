@@ -149,7 +149,7 @@ int main(int argc, char** argv)
 
     // Vote shares
     visitorAggregateLocations aggVoteShares(isValidDistrict, getDistrictParseExpr, [](const regionData& r) {
-        return r.getPropertyCount("2020HouseDemCount") /
+        return r.getPropertyCount("2020HouseRepCount") /
                (float)(r.getPropertyCount("2020HouseDemCount") + r.getPropertyCount("2020HouseRepCount"));
     });
     visitorAggregateLocations aggEfficiencyGap(
@@ -183,6 +183,9 @@ int main(int argc, char** argv)
                     districtCollections[r.getState()].end(),
                     std::back_inserter(repCounts),
                     [](districtRegionData* drd) { return drd->getPropertyCount("2020HouseRepCount"); });
+          if(demCounts.size() == 0) {
+              return 0.0;
+          }
           return getPartisanBias(demCounts, repCounts);
       });
     visitorAggregateLocations aggMeanMedianScores(
@@ -205,9 +208,11 @@ int main(int argc, char** argv)
           vector<double> demShares;
           for (int i = 0; i < demCounts.size(); i++)
           {
-              demShares.push_back(demCounts[i] / (double)(repCounts[i] + demCounts[i]));
+              if(demCounts[i] != 0 || repCounts[i] != 0)
+              {
+                demShares.push_back(demCounts[i] / (double)(repCounts[i] + demCounts[i]));
+              }
           }
-          cout << demCounts.size() << " : " << demShares.size() << endl;
           return getMeanMedianScores(demShares);
       });
     visitorAggregateLocations aggDeclinationAngle(
@@ -230,8 +235,12 @@ int main(int argc, char** argv)
           vector<double> demShares;
           for (int i = 0; i < demCounts.size(); i++)
           {
-              demShares.push_back(demCounts[i] / (double)(repCounts[i] + demCounts[i]));
+              if(demCounts[i] != 0 || repCounts[i] != 0)
+              {
+                demShares.push_back(demCounts[i] / (double)(repCounts[i] + demCounts[i]));
+              }
           }
+          cout << r.getState()  << ": " << demCounts.size() << " - " << repCounts.size() << endl;
           return getDeclinationAngle(demShares);
       });
 
@@ -367,6 +376,7 @@ int main(int argc, char** argv)
     da.addSimpleMapLayer("DistrictLines", "demo/data/cd117", std::move(districtlines_style4));
 
     // State Line Coloring -------------------------------------------------
+    cout << "eg\n";
     eg.addParsedMapLayer(
       "StateBorderColoring",
       aggEfficiencyGap,
@@ -380,6 +390,7 @@ int main(int argc, char** argv)
           return (symbolizer)line_sym;
       },
       "demo/data/cb_2018_us_state_20m");
+    cout << "pb\n";
     pb.addParsedMapLayer(
       "StateBorderColoring",
       aggPartisanBias,
@@ -393,6 +404,7 @@ int main(int argc, char** argv)
           return (symbolizer)line_sym;
       },
       "demo/data/cb_2018_us_state_20m");
+    cout << "mms\n";
     mms.addParsedMapLayer(
       "StateBorderColoring",
       aggMeanMedianScores,
@@ -406,6 +418,7 @@ int main(int argc, char** argv)
           return (symbolizer)line_sym;
       },
       "demo/data/cb_2018_us_state_20m");
+    cout << "da\n";
     da.addParsedMapLayer(
       "StateBorderColoring",
       aggDeclinationAngle,
@@ -420,8 +433,8 @@ int main(int argc, char** argv)
       },
       "demo/data/cb_2018_us_state_20m");
 
-    return eg.saveToJPG();
-    return pb.saveToJPG();
-    return mms.saveToJPG();
-    return da.saveToJPG();
+    eg.saveToJPG();
+    pb.saveToJPG();
+    mms.saveToJPG();
+    da.saveToJPG();
 }

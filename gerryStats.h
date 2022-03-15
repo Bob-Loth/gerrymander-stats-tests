@@ -51,7 +51,9 @@ double getPartisanBias(std::vector<int> demVoteCounts,
     int statewideRepVoteCount =
         std::accumulate(repVoteCounts.begin(), repVoteCounts.end(), 0);
     int statewideTotalVoteCount = statewideDemVoteCount + statewideRepVoteCount;
-
+    if(statewideTotalVoteCount == 0) {
+        return 0;
+    }
     double statewideDemVoteShare =
         static_cast<double>(statewideDemVoteCount) / statewideTotalVoteCount;
     double statewideRepVoteShare =
@@ -94,6 +96,9 @@ double getMeanMedianScores(std::vector<double> demVoteShares) {
         (pct > 0.5) ? demDistricts.push_back(pct)
                     : repDistricts.push_back(1 - pct);
     }
+    if(demDistricts.size() == 0 || repDistricts.size() == 0) {
+        return 0.0;
+    }
     double demMeanMedian =
         stats::computeMedian(demDistricts) - stats::computeMean(demDistricts);
     double repMeanMedian =
@@ -119,6 +124,8 @@ double getDeclinationAngle(std::vector<double> demVoteShares) {
         (pct > 0.5) ? demDiff.push_back(pct - 0.5)
                     : repDiff.push_back(0.5 - pct);
     }
+    //return 0 for cases where there is insufficient data
+    if (demDiff.size() == 0 || repDiff.size() == 0) return 0.0;
     // compute the X scaling factor for the best-fit lines
     double demCenter = calcXWeight(demDiff.size());
     double repCenter = calcXWeight(repDiff.size());

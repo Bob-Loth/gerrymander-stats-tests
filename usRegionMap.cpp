@@ -43,6 +43,7 @@ std::vector<std::pair<std::string, mapnik::color>>
     for (auto region : regionValues)
     {
         int index = round(((region.second - minValue) / (maxValue - minValue)) * (colorMap.size() - 1));
+        //cout << index << " : " << region.second << " : " << minValue << " : " << maxValue << " : " << region.first << endl;
         parseExprs[index].first += (parseExprs[index].first.empty() ? +"" : " or ") + region.first;
     }
 

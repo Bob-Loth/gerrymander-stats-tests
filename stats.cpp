@@ -14,9 +14,14 @@ double stats::computeMean(vector<double> theNums) {
 }
 
 double stats::computeMedian(vector<double> theNums) {
-    nth_element(theNums.begin(), theNums.begin() + (theNums.size() / 2),
-                theNums.end());
-    return theNums.at(theNums.size() / 2);
+    sort(theNums.begin(), theNums.end());
+    size_t siz = theNums.size();
+    if (siz == 1) //single element, just to be explicit
+        return theNums[0];
+    else if (siz % 2 == 0) //even, average the two middle
+        return (theNums[siz / 2] + theNums[(siz / 2) + 1]) / 2.0;
+    //odd, return middle
+    return theNums[siz / 2];
 }
 
 // pass in counts
