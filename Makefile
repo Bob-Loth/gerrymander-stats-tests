@@ -1,8 +1,27 @@
-gerryStats: main.cpp stats.cpp stats.h gerryStats.h
-	clang++ -std=c++11 *.cpp -o gerryStats
+CXXFLAGS = -g $(shell mapnik-config --includes --defines --cxxflags --dep-includes) -std=c++17 -lprofiler
+LDFLAGS = $(shell mapnik-config --libs --dep-libs --ldflags)
 
-run: gerryStats
-	make && ./gerryStats
+OBJ = CountyMap.o districtRegionData.o demogRegionData.o psRegionData.o parse.o rundemo.o
 
-clean:
-	rm *.o gerryStats
+BIN = rundemo
+
+all : $(BIN)
+
+$(BIN) : $(OBJ)
+	$(CXX) $(OBJ) $(LDFLAGS) -DMAPNIK_USE_PROJ4 -o $@
+
+.c.o :
+	$(CXX) -c $(CXXFLAGS) $<
+
+gyp:
+	rm -rf ./build
+	gyp rundemo.gyp --depth=. -f make --generator-output=./build/
+	make -C ./build
+	build/out/Release/rundemo `mapnik-config --prefix`
+
+.PHONY : clean
+
+clean: 
+	rm -f $(OBJ)
+	rm -f $(BIN)
+	rm -f ./build
