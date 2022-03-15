@@ -45,11 +45,11 @@ double getEfficiencyGap(std::vector<double> demVoteShares, int statePop) {
     return efficiencyGap;
 }
 
-// returns a vector with position 0 = republican mean-median, position 1 =
-// democratic mean-median. the mean-median is a measure of the difference
-// between a party's median vote share and its mean vote share. Higher
-// differences, especially if the differences are largely only affecting one
-// party in a state, could indicate a partisan gerrymander.
+double getPartisanBias(std::vector<double> getDemVoteShares, int statePop) {
+    return 0;
+}
+
+// returns a double indicating (demMedian - demMean) - (repMedian - repMean)
 double getMeanMedianScores(std::vector<double> demVoteShares) {
     std::vector<double> demDistricts;
     std::vector<double> repDistricts;
