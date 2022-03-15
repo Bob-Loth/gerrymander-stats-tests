@@ -11,6 +11,40 @@ double RadToDeg(double rad) { return (180.0 / M_PI) * rad; }
 
 double calcXWeight(size_t numDistricts) { return (numDistricts / 2) + .5; }
 
+// computes the efficiency gap. Gap scaling is based on population, due to lack
+// of voting% data for our demVoteShares data. Positive values indicate
+// advantage for Republicans by convention.
+double getEfficiencyGap(std::vector<double> demVoteShares, int statePop) {
+    std::vector<double> demDistricts;
+    std::vector<double> repDistricts;
+    sort(demVoteShares.begin(), demVoteShares.end());
+    // split into the percentage of votes for the winning party of each district
+    for (auto pct : demVoteShares) {
+        (pct > 0.5) ? demDistricts.push_back(pct)
+                    : repDistricts.push_back(1 - pct);
+    }
+    // this has an error of +-2%, as allowed by redistricting law
+    double populationPerDistrict =
+        static_cast<double>(statePop) / demVoteShares.size();
+    int demWasted = 0;
+    int repWasted = 0;
+    // calculate wasted votes across districts where Democrats won
+    for (auto pct : demDistricts) {
+        demWasted += (pct - 0.5) * populationPerDistrict;
+        repWasted += (1 - pct) * populationPerDistrict;
+    }
+    // calculate wasted votes across districts where Republicans won
+    for (auto pct : repDistricts) {
+        repWasted += (pct - 0.5) * populationPerDistrict;
+        demWasted += (1 - pct) * populationPerDistrict;
+    }
+    // this is based on population, because we don't have data on voting
+    // percentage
+    double efficiencyGap =
+        static_cast<double>(demWasted - repWasted) / statePop;
+    return efficiencyGap;
+}
+
 // returns a vector with position 0 = republican mean-median, position 1 =
 // democratic mean-median. the mean-median is a measure of the difference
 // between a party's median vote share and its mean vote share. Higher
